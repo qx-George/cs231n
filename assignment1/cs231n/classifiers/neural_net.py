@@ -76,7 +76,9 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    scores_layer1 = np.dot(X, W1) + b1
+    hidden_scores = np.maximum(scores_layer1, 0)
+    scores = np.dot(hidden_scores, W2) + b2
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -93,7 +95,18 @@ class TwoLayerNet(object):
     # in the variable loss, which should be a scalar. Use the Softmax           #
     # classifier loss.                                                          #
     #############################################################################
-    pass
+    num_classes = W2.shape[1]
+    
+    # softmax loss (the same with softmax.py)
+    expscores = np.exp(scores)
+    probs = expscores / np.sum(expscores, axis=1, keepdims=True)
+    
+    # compute the loss: average cross-entropy loss and regularization
+    correct_logprobs = -np.log(probs[range(N), y])
+    data_loss = np.sum(correct_logprobs) / N
+    reg_loss = 0.5 * reg * np.sum(W1 * W1) + 0.5 * reg * np.sum(W2 * W2) 
+    loss = data_loss + reg_loss
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -105,7 +118,48 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    # calculate dLoss/dscores
+    # dLoss/dscores = dLoss/dProb * dProb/dscores
+    dscores = probs
+    dscores[range(N), y] -= 1
+    dscores /= N
+    
+    # now calculate dW1, dW2, db1, db2
+    # scores = W2 *hidden_scores + b2
+    # -> dscores/dW2 = hidden_scores
+    #
+    # dLoss/dW2 = dLoss/dscores * dscores/dW2
+    #           = dscores * hidden_scores
+    grads['W2'] = np.dot(hidden_scores.T, dscores)
+    
+    # dLoss/db2 = dLoss/dscores * dscores/db2
+    #           = dscores * 1
+    grads['b2'] = np.sum(dscores, axis=0)
+    
+    # dLoss/dHidden = dLoss/dscores * dscores/dHidden
+    #               = dscores * W2
+    dHidden = np.dot(dscores, W2.T)
+    
+    # hidden_scores = max(0, scores_layer1)
+    # dLoss/dscores_layer1 = dLoss/dHidden * dHidden/dscores_layer1
+    # dHIdden/dscores_layer1 = 1 if scores_layer1 > 0, 0 otherwise
+    dHidden[hidden_scores <= 0] = 0
+    #dHidden_dLayer1 = np.zeros_like(scores_layer1)
+    #dHidden_dLayer1[scores_layer1 > 0] = 1
+    
+    # dscores_layer1 = dHidden * dHidden_dLayer1
+    # this is an element wise multiply
+    #dscores_layer1 = dHidden * dHidden_dLayer1
+    
+    # scores_layer1 = W1 * X + b1
+    # dLoss/dW1 = dLoss/dscores_layer1 * dscores_layer1/dW1
+    #           = dscores_layer1  * X
+    grads['W1'] = np.dot(X.T, dHidden)
+    grads['b1'] = np.sum(dHidden, axis=0)
+    
+    # gradient due do the regularization term on the loss function
+    grads['W1'] += reg * W1
+    grads['W2'] += reg * W2
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -149,7 +203,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      batch_index = np.random.choice(num_train, batch_size, replace=True)
+      X_batch = X[batch_index, :]
+      y_batch = y[batch_index] 
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -164,7 +220,10 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      self.params['W1'] += -learning_rate * grads['W1']
+      self.params['b1'] += -learning_rate * grads['b1']
+      self.params['W2'] += -learning_rate * grads['W2']
+      self.params['b2'] += -learning_rate * grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -209,7 +268,14 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+    
+    scores_layer1 = np.dot(X, W1) + b1
+    hidden_scores = np.maximum(scores_layer1, 0)
+    scores = np.dot(hidden_scores, W2) + b2
+    
+    y_pred = np.argmax(scores, axis=1) 
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
