@@ -293,6 +293,10 @@ class FullyConnectedNet(object):
                 else:
                     scores, cache = affine_relu_forward(scores, self.params[W_name],
                                                     self.params[b_name])
+                if self.use_dropout:
+                    dropout_name = "dropout" + layer_name
+                    scores, caches[dropout_name] = dropout_forward(scores, self.dropout_param)
+
             caches[cache_name] = cache
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -323,6 +327,9 @@ class FullyConnectedNet(object):
             W_name = "W" + layer_name
             b_name = "b" + layer_name
             cache_name = "cache" + layer_name
+            gamma_name = "gamma" + layer_name
+            beta_name = "beta" + layer_name
+            dropout_name = "dropout" + layer_name
 
             # L2 regularization loss
             loss += 0.5 * self.reg * np.sum(self.params[W_name] ** 2)
@@ -332,9 +339,10 @@ class FullyConnectedNet(object):
                 der, grads[W_name], grads[b_name] = affine_backward(
                     der, caches[cache_name])
             else:
+                if self.use_dropout:
+                    der = dropout_backward(der, caches[dropout_name])
+                    
                 if self.use_batchnorm:
-                    gamma_name = "gamma" + layer_name
-                    beta_name = "beta" + layer_name
                     (der, grads[W_name], grads[b_name], grads[gamma_name], 
                         grads[beta_name]) = affine_bn_relu_backward(der, caches[cache_name])
                 else:
