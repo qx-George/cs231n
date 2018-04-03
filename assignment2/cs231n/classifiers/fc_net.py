@@ -284,7 +284,14 @@ class FullyConnectedNet(object):
                 scores, cache = affine_forward(scores, self.params[W_name],
                                                self.params[b_name])
             else:
-                scores, cache = affine_relu_forward(scores, self.params[W_name],
+                if self.use_batchnorm:
+                    gamma_name = "gamma" + layer_name
+                    beta_name = "beta" + layer_name
+                    scores, cache = affine_bn_relu_forward(scores, self.params[W_name], self.params[b_name],
+                                                        self.params[gamma_name], self.params[beta_name], 
+                                                        self.bn_params[i - 1])
+                else:
+                    scores, cache = affine_relu_forward(scores, self.params[W_name],
                                                     self.params[b_name])
             caches[cache_name] = cache
         ############################################################################
@@ -325,7 +332,13 @@ class FullyConnectedNet(object):
                 der, grads[W_name], grads[b_name] = affine_backward(
                     der, caches[cache_name])
             else:
-                (der, grads[W_name], grads[b_name]) = affine_relu_backward(der, caches[cache_name])
+                if self.use_batchnorm:
+                    gamma_name = "gamma" + layer_name
+                    beta_name = "beta" + layer_name
+                    (der, grads[W_name], grads[b_name], grads[gamma_name], 
+                        grads[beta_name]) = affine_bn_relu_backward(der, caches[cache_name])
+                else:
+                    (der, grads[W_name], grads[b_name]) = affine_relu_backward(der, caches[cache_name])
 
             grads[W_name] += self.reg * self.params[W_name]
         ############################################################################

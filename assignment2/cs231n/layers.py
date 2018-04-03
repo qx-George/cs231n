@@ -109,7 +109,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
-    dout[x <= 0 ] = 0
+    dout[x <= 0] = 0
     dx = dout
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -180,7 +180,19 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, storing your result in the running_mean and running_var   #
         # variables.                                                          #
         #######################################################################
-        pass
+        mean = np.mean(x, axis=0)
+        var = np.var(x, axis=0)
+        xmean = x - mean
+        sqrtvar = np.sqrt(var + eps)
+        ivar = 1. / sqrtvar
+        x_hat = xmean * ivar
+  
+        out = x_hat * gamma + beta
+
+        running_mean = momentum * running_mean + (1 - momentum) * mean
+        running_var = momentum * running_var + (1 - momentum) * var
+
+        cache = (x_hat, gamma, xmean, ivar, sqrtvar, var, eps)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -191,7 +203,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        x_hat = (x - running_mean) / np.sqrt(running_var + eps)
+        out = x_hat * gamma + beta
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -227,7 +240,39 @@ def batchnorm_backward(dout, cache):
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    pass
+    x_hat, gamma, xmean, ivar, sqrtvar, var, eps = cache
+    N, D = dout.shape
+    
+    # 在计算forward pass的时候用的是element-wise的乘法，back propagation的时候就也要用element_wise
+    # 的乘法，forward的时候用矩阵乘法，back的时候才能用矩阵乘法
+    dgamma = np.sum(dout * x_hat, axis=0)
+    dbeta = np.sum(dout, axis=0)
+    
+    dxhat = dout * gamma
+
+    # xhat = xmean * ivar
+    divar = np.sum(dxhat * xmean, axis=0)
+    dxmean1 = dxhat * ivar 
+
+    # ivar = 1 / sqrtvar
+    dsqrtvar = divar * (-1. / sqrtvar ** 2)
+
+    # sqrtvar = (var + eps)^0.5
+    dvar = 0.5 * (1. / np.sqrt(var + eps)) * dsqrtvar
+
+    # var = 1 / N * sq.sum(axis=0)
+    dsq = 1. / N * np.ones((N, D)) * dvar
+
+    # sq = xmean^2
+    dxmean2 = 2 * xmean * dsq
+    dxmean = dxmean1 + dxmean2
+
+    # xmean = x - mean 
+    dmean = -1 * np.sum(dxmean, axis=0)
+    dx1 = dxmean
+    dx2 = 1. / N * np.ones((N, D)) * dmean
+
+    dx = dx1 + dx2
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -257,7 +302,15 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    N, D = dout.shape
+    x_hat, gamma, xmean, ivar, sqrtvar, var, eps = cache
+
+    dbeta = np.sum(dout, axis=0)
+    dgamma = np.sum(dout * x_hat, axis=0)
+    dxhat = dout * gamma
+
+    dx = (1. / N) * ivar * (N * dxhat - np.sum(dxhat, axis=0)
+            - x_hat * np.sum(dxhat * x_hat, axis=0))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -296,7 +349,8 @@ def dropout_forward(x, dropout_param):
         # TODO: Implement training phase forward pass for inverted dropout.   #
         # Store the dropout mask in the mask variable.                        #
         #######################################################################
-        pass
+        mask = (np.random.rand(*x.shape) < p) / p
+        out = mask * x
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -304,7 +358,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # TODO: Implement the test phase forward pass for inverted dropout.   #
         #######################################################################
-        pass
+        out = x
         #######################################################################
         #                            END OF YOUR CODE                         #
         #######################################################################
@@ -331,7 +385,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # TODO: Implement training phase backward pass for inverted dropout   #
         #######################################################################
-        pass
+        dx = np.dot(mask, dout)
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
