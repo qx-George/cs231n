@@ -482,15 +482,15 @@ def conv_backward_naive(dout, cache):
     # dx should be of size (N, C, H, W)
     dx_padded = np.zeros((N, C, H + 2*pad, W + 2*pad))
     for n in range(N):
-        for height in range(H):
-            for width in range(W):
+        for height in range(Hout):
+            for width in range(Wout):
                 # There are total F different filters
                 for f in range(F):
                     starth = height * stride
                     startw = width * stride
                     dx_padded[n, :, starth : HH + starth, startw : WW + startw] += dout[n, f, height,
                         width] * w[f, :, :, :] 
-    dx = dx_padded[:, :, pad : H+1, pad : W+1]
+    dx = dx_padded[:, :, pad : H+pad, pad : W+pad]
 
     # dw should be of size (F, C, HH, WW)
     dw = np.zeros(w.shape)
@@ -630,7 +630,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    x_tmp = x.transpose(0, 2, 3, 1).reshape(N*H*W, C)
+    out, cache = batchnorm_forward(x_tmp, gamma, beta, bn_param)
+    out = out.reshape(N, H, W, C).transpose(0, 3, 1, 2)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -660,7 +663,14 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = dout.shape
+
+    # First change shape to (N*H*W, C)
+    dout_tmp = dout.transpose(0, 2, 3, 1).reshape(N*H*W, C)
+    dx, dgamma, dbeta = batchnorm_backward(dout_tmp, cache)
+
+    # Then convert back to (N, C, H, W)
+    dx = dx.reshape(N, H, W, C).transpose(0, 3, 1, 2)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
