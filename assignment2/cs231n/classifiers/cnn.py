@@ -54,7 +54,7 @@ class ThreeLayerConvNet(object):
 
         # the output size of conv layer should be (F, H', W'), then after 2x2 max pool,
         # the output become (F, H'/2, W'/2)
-        # We rely on the fact that HxW are unchanged by the conv layer
+        # See below, here stride is 1 and pad = (s - 1)/2. So the output size is the same as input size.
         self.params['W2'] = np.random.normal(scale=weight_scale, size=(num_filters * H//2 * W//2, hidden_dim))
         self.params['b2'] = np.zeros(hidden_dim)
         self.params['W3'] = np.random.normal(scale=weight_scale, size=(hidden_dim, num_classes))
