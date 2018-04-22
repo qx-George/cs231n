@@ -137,7 +137,35 @@ class CaptioningRNN(object):
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
         ############################################################################
-        pass
+
+        # Forward pass
+        cache = {}
+        h0, cache['affine']= affine_forward(features, W_proj, b_proj)
+
+        x, cache['embedding']= word_embedding_forward(captions_in, W_embed)
+
+        if self.cell_type == 'rnn':
+            h, cache['rnn'] = rnn_forward(x, h0, Wx, Wh, b)
+        else:
+            h, cache['lstm'] = lstm_forward(x, h0, Wx, Wh, b)
+
+        out, cache['temporal_affine'] = temporal_affine_forward(h, W_vocab, b_vocab)
+
+        loss, der = temporal_softmax_loss(out, captions_out, mask)
+
+        # Backward pass
+        der, grads['W_vocab'], grads['b_vocab']  = temporal_affine_backward(der, cache['temporal_affine'])
+
+        if self.cell_type == 'rnn':
+            der, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(der, cache['rnn'])
+        else:
+            der, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(der, cache['lstm'])
+
+        grads['W_embed'] = word_embedding_backward(der, cache['embedding'])
+
+        # Here dh0 shoule be passed as dout because affine_forward computes initial hidden state
+        # i.e h0 from features, so dout should be the derivative w.r.t h0
+        der, grads['W_proj'], grads['b_proj'] = affine_backward(dh0, cache['affine'])
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -199,7 +227,38 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
+        # Initialize the hidden state
+        h0, _ = affine_forward(features, W_proj, b_proj)
+        prev_h = h0
+
+        # Need to construct <START> for every data in minibatch N!!!!
+        cur_word = np.empty(1, dtype=np.int32)
+        cur_word[0] = self._start
+        cur_words = np.tile(cur_word, N).reshape(N, 1)
+
+        # Forward pass at each timestep
+        for t in range(max_length):
+            cur_words_vec, _ = word_embedding_forward(cur_words, W_embed)
+
+            x = np.squeeze(cur_words_vec, axis=1)
+            if self.cell_type == 'rnn':
+                next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+            else:
+                next_h, _ = lstm_step_forward(x, prev_h, Wx, Wh, b)
+
+            scores, _ = temporal_affine_forward(np.expand_dims(next_h, 1), W_vocab, b_vocab)
+            # convert from Nx1xV to NxV
+            scores = np.squeeze(scores, axis=1)
+
+            # Always remember we are processing mini_batch data with size N, rather than
+            # a single data!!! 
+            # So now need to generate a N element vector which is argmax over axis=1, then 
+            # convert to an Nx1 element array
+            cur_words = np.argmax(scores, axis=1).reshape(N, 1)
+
+            # captions[:, t] = np.squeeze(cur_words, axis=1)
+            captions[:, t] = cur_words[:, 0]
+            prev_h = next_h
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
