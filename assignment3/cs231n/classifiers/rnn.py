@@ -256,8 +256,7 @@ class CaptioningRNN(object):
             # convert to an Nx1 element array
             cur_words = np.argmax(scores, axis=1).reshape(N, 1)
 
-            # captions[:, t] = np.squeeze(cur_words, axis=1)
-            captions[:, t] = cur_words[:, 0]
+            captions[:, t] = np.squeeze(cur_words, axis=1)
             prev_h = next_h
         ############################################################################
         #                             END OF YOUR CODE                             #
