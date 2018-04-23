@@ -276,7 +276,24 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
     #############################################################################
-    pass
+    N, H = prev_h.shape
+    # a is of shape (N, 4H)
+    a = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+    ai = a[:, :H]
+    af = a[:, H:2*H]
+    ao = a[:, 2*H:3*H]
+    ag = a[:, 3*H:4*H]
+
+    i = sigmoid(ai)
+    f = sigmoid(af)
+    o = sigmoid(ao)
+    g = np.tanh(ag)
+
+    next_c = f * prev_c + i * g
+    tanh_next_c = np.tanh(next_c)
+    next_h = o * tanh_next_c
+
+    cache = (x, prev_h, prev_c, Wx, Wh, ai, af, ao, ag, i, f, o, g, next_c, tanh_next_c, next_h)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -308,7 +325,31 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
     # the output value from the nonlinearity.                                   #
     #############################################################################
-    pass
+    x, prev_h, prev_c, Wx, Wh, ai, af, ao, ag, i, f, o, g, next_c, tanh_next_c, next_h = cache
+    N, H = dnext_h.shape
+
+    do = dnext_h * tanh_next_c
+    dtanh_next_c = dnext_h * o
+
+    dnext_c_h = dtanh_next_c * (1 - tanh_next_c ** 2)
+    dnext_c += dnext_c_h
+
+    df = dnext_c * prev_c
+    dprev_c = dnext_c * f
+    di = dnext_c * g
+    dg = dnext_c * i
+
+    dai = di * i * (1 - i)
+    daf = df * f * (1 - f)
+    dao = do * o * (1 - o)
+    dag = dg * (1 - g ** 2)
+    da = np.concatenate((dai, daf, dao, dag), axis=1)
+
+    db = np.sum(da, axis=0)
+    dWh = np.dot(prev_h.T, da)
+    dprev_h = np.dot(da, Wh.T)
+    dWx = np.dot(x.T, da)
+    dx = np.dot(da, Wx.T)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
