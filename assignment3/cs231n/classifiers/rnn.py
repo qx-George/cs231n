@@ -236,6 +236,10 @@ class CaptioningRNN(object):
         cur_word[0] = self._start
         cur_words = np.tile(cur_word, N).reshape(N, 1)
 
+        # Specific for lstm, deal with cell state.
+        c0 = np.zeros(h0.shape)
+        prev_c = c0
+
         # Forward pass at each timestep
         for t in range(max_length):
             cur_words_vec, _ = word_embedding_forward(cur_words, W_embed)
@@ -244,7 +248,7 @@ class CaptioningRNN(object):
             if self.cell_type == 'rnn':
                 next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
             else:
-                next_h, _ = lstm_step_forward(x, prev_h, Wx, Wh, b)
+                next_h, prev_c, _ = lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b)
 
             scores, _ = temporal_affine_forward(np.expand_dims(next_h, 1), W_vocab, b_vocab)
             # convert from Nx1xV to NxV

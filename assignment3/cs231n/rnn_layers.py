@@ -384,7 +384,20 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
-    pass
+    N, T, D = x.shape
+    H = h0.shape[1]
+    prev_h = h0
+    prev_c = np.zeros(h0.shape)
+    cache = []
+    h = np.empty((N, T, H))
+
+    for t in range(T):
+        next_h, next_c, cache_tmp = lstm_step_forward(x[:, t, :], prev_h, prev_c, Wx, Wh, b)
+        cache.append(cache_tmp)
+        h[:, t, :] = next_h
+        prev_h = next_h
+        prev_c = next_c
+
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -412,7 +425,27 @@ def lstm_backward(dh, cache):
     # TODO: Implement the backward pass for an LSTM over an entire timeseries.  #
     # You should use the lstm_step_backward function that you just defined.     #
     #############################################################################
-    pass
+    N, T, H = dh.shape
+    D = cache[0][0].shape[1]
+    dx = np.zeros((N, T, D))
+    dprev_h = np.zeros((N, H))
+    dprev_c = np.zeros((N, H))
+
+    # The 1st time step calculate gradient, the dprev_c should be set to 0, 
+    # still could not figure out why... 
+    for t in reversed(range(T)):
+        cur_cache = cache[t]
+        dtotal_h = dh[:, t, :] + dprev_h
+        if t == T - 1:
+            dx_tmp, dprev_h, dprev_c, dWx, dWh, db = lstm_step_backward(dtotal_h, dprev_c, cache[t])
+        else:
+            dx_tmp, dprev_h, dprev_c, dWx_tmp, dWh_tmp, db_tmp = lstm_step_backward(dtotal_h, dprev_c, cache[t])
+            dWx += dWx_tmp
+            dWh += dWh_tmp
+            db += db_tmp
+        dx[:, t, :] = dx_tmp
+
+    dh0 = dprev_h
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
